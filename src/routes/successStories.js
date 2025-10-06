@@ -16,6 +16,7 @@ const {
 
 // Import models
 const SuccessStory = require('../models/SuccessStoryModel');
+const NewsCategory = require('../models/NewsCategoryModel');
 
 // Import utilities
 const { createPagination } = require('../utils/helpers');
@@ -24,44 +25,36 @@ const logger = require('../utils/logger');
 // Validation schemas
 const successStoryValidation = {
   create: Joi.object({
-    title: Joi.string().min(10).max(200).required().messages({
-      'string.min': 'Title must be at least 10 characters long',
-      'string.max': 'Title cannot exceed 200 characters',
-      'any.required': 'Title is required',
+    // Your Name
+    submittedBy: Joi.string().min(2).max(100).required().messages({
+      'string.min': 'Name must be at least 2 characters long',
+      'string.max': 'Name cannot exceed 100 characters',
+      'any.required': 'Your name is required',
     }),
-    content: Joi.string().min(50).max(5000).required().messages({
-      'string.min': 'Content must be at least 50 characters long',
-      'string.max': 'Content cannot exceed 5000 characters',
-      'any.required': 'Content is required',
-    }),
-    beneficiaryName: Joi.string().min(2).max(100).required().messages({
-      'string.min': 'Beneficiary name must be at least 2 characters long',
-      'string.max': 'Beneficiary name cannot exceed 100 characters',
-      'any.required': 'Beneficiary name is required',
-    }),
-    beneficiaryLocation: Joi.string().min(2).max(200).required().messages({
+    // Location
+    location: Joi.string().min(2).max(200).required().messages({
       'string.min': 'Location must be at least 2 characters long',
       'string.max': 'Location cannot exceed 200 characters',
       'any.required': 'Location is required',
     }),
-    storyType: Joi.string()
-      .valid(
-        'technology',
-        'healthcare',
-        'education',
-        'environment',
-        'social',
-        'economic'
-      )
-      .required()
-      .messages({
-        'any.only':
-          'Story type must be one of: technology, healthcare, education, environment, social, economic',
-        'any.required': 'Story type is required',
-      }),
-    imageUrl: Joi.string().required().messages({
-      'any.required': 'Image URL is required',
+    // Category (from the category we created)
+    categoryId: Joi.string().hex().length(24).required().messages({
+      'string.hex': 'Category ID must be a valid ObjectId',
+      'string.length': 'Category ID must be 24 characters long',
+      'any.required': 'Category is required',
     }),
+    // Email
+    submittedEmail: Joi.string().email().required().messages({
+      'string.email': 'Please enter a valid email address',
+      'any.required': 'Email is required',
+    }),
+    // Your Story
+    content: Joi.string().min(50).max(5000).required().messages({
+      'string.min': 'Story must be at least 50 characters long',
+      'string.max': 'Story cannot exceed 5000 characters',
+      'any.required': 'Your story is required',
+    }),
+    // Rating
     rating: Joi.number().integer().min(1).max(5).required().messages({
       'number.base': 'Rating must be a number',
       'number.integer': 'Rating must be a whole number',
@@ -69,40 +62,29 @@ const successStoryValidation = {
       'number.max': 'Rating cannot exceed 5',
       'any.required': 'Rating is required',
     }),
-    submittedBy: Joi.string().optional(),
-    submittedEmail: Joi.string().email().optional(),
+    // Optional image
+    imageUrl: Joi.string().optional(),
   }),
   update: Joi.object({
-    title: Joi.string().min(10).max(200).optional().messages({
-      'string.min': 'Title must be at least 10 characters long',
-      'string.max': 'Title cannot exceed 200 characters',
+    submittedBy: Joi.string().min(2).max(100).optional().messages({
+      'string.min': 'Name must be at least 2 characters long',
+      'string.max': 'Name cannot exceed 100 characters',
     }),
-    content: Joi.string().min(50).max(5000).optional().messages({
-      'string.min': 'Content must be at least 50 characters long',
-      'string.max': 'Content cannot exceed 5000 characters',
-    }),
-    beneficiaryName: Joi.string().min(2).max(100).optional().messages({
-      'string.min': 'Beneficiary name must be at least 2 characters long',
-      'string.max': 'Beneficiary name cannot exceed 100 characters',
-    }),
-    beneficiaryLocation: Joi.string().min(2).max(200).optional().messages({
+    location: Joi.string().min(2).max(200).optional().messages({
       'string.min': 'Location must be at least 2 characters long',
       'string.max': 'Location cannot exceed 200 characters',
     }),
-    storyType: Joi.string()
-      .valid(
-        'technology',
-        'healthcare',
-        'education',
-        'environment',
-        'social',
-        'economic'
-      )
-      .optional()
-      .messages({
-        'any.only':
-          'Story type must be one of: technology, healthcare, education, environment, social, economic',
-      }),
+    categoryId: Joi.string().hex().length(24).optional().messages({
+      'string.hex': 'Category ID must be a valid ObjectId',
+      'string.length': 'Category ID must be 24 characters long',
+    }),
+    submittedEmail: Joi.string().email().optional().messages({
+      'string.email': 'Please enter a valid email address',
+    }),
+    content: Joi.string().min(50).max(5000).optional().messages({
+      'string.min': 'Story must be at least 50 characters long',
+      'string.max': 'Story cannot exceed 5000 characters',
+    }),
     imageUrl: Joi.string().optional(),
     rating: Joi.number().integer().min(1).max(5).optional().messages({
       'number.base': 'Rating must be a number',
@@ -116,6 +98,42 @@ const successStoryValidation = {
 };
 
 // Public routes
+/**
+ * @swagger
+ * /api/success-stories/categories:
+ *   get:
+ *     summary: Get available success story categories (Public)
+ *     tags: [Success Stories]
+ *     responses:
+ *       200:
+ *         description: Categories retrieved successfully
+ */
+router.get('/categories', async (req, res) => {
+  try {
+    const categories = await NewsCategory.find({ isActive: true }).sort({
+      name: 1,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        categories: categories.map((category) => ({
+          _id: category._id,
+          name: category.name,
+          slug: category.slug,
+          description: category.description,
+        })),
+      },
+    });
+  } catch (error) {
+    logger.error('Get success story categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get categories',
+    });
+  }
+});
+
 /**
  * @swagger
  * /api/success-stories:
@@ -148,9 +166,9 @@ const successStoryValidation = {
  */
 router.get('/', validatePagination, async (req, res) => {
   try {
-    const { page, limit, storyType, search } = req.query;
+    const { page, limit, categoryId, search } = req.query;
 
-    const options = { page, limit, storyType, verified: true };
+    const options = { page, limit, categoryId, verified: true };
     const successStories = await SuccessStory.search(search, options);
     const total = await SuccessStory.countDocuments({
       isVerified: true,
@@ -193,7 +211,10 @@ router.get('/:id', validateObjectId('id'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const successStory = await SuccessStory.findById(id);
+    const successStory = await SuccessStory.findById(id).populate(
+      'categoryId',
+      'name slug description'
+    );
     if (!successStory || !successStory.isVerified || !successStory.isActive) {
       return res.status(404).json({
         success: false,
@@ -261,35 +282,37 @@ router.get('/featured', async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - title
+ *               - submittedBy
+ *               - location
+ *               - categoryId
+ *               - submittedEmail
  *               - content
- *               - beneficiaryName
- *               - beneficiaryLocation
- *               - storyType
- *               - imageUrl
  *               - rating
  *             properties:
- *               title:
+ *               submittedBy:
  *                 type: string
+ *                 description: Your name
+ *               location:
+ *                 type: string
+ *                 description: Your location
+ *               categoryId:
+ *                 type: string
+ *                 description: Category ID from the created categories
+ *               submittedEmail:
+ *                 type: string
+ *                 format: email
+ *                 description: Your email address
  *               content:
  *                 type: string
- *               beneficiaryName:
- *                 type: string
- *               beneficiaryLocation:
- *                 type: string
- *               storyType:
- *                 type: string
- *                 enum: [technology, healthcare, education, environment, social, economic]
- *               imageUrl:
- *                 type: string
+ *                 description: Your story
  *               rating:
  *                 type: number
  *                 minimum: 1
  *                 maximum: 5
- *               submittedBy:
+ *                 description: Rating from 1 to 5
+ *               imageUrl:
  *                 type: string
- *               submittedEmail:
- *                 type: string
+ *                 description: Optional image URL
  *     responses:
  *       201:
  *         description: Success story submitted successfully
@@ -299,6 +322,17 @@ router.post(
   validateBody(successStoryValidation.create),
   async (req, res) => {
     try {
+      const { categoryId } = req.body;
+
+      // Validate that the category exists
+      const category = await NewsCategory.findById(categoryId);
+      if (!category || !category.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid category selected. Please choose a valid category.',
+        });
+      }
+
       const storyData = {
         ...req.body,
         ipAddress: req.ip || req.connection.remoteAddress,
@@ -309,9 +343,7 @@ router.post(
       await successStory.save();
 
       logger.info(
-        `Success story submitted: ${successStory.title} by ${
-          storyData.submittedBy || 'Anonymous'
-        }`
+        `Success story submitted by ${storyData.submittedBy} (${storyData.submittedEmail}) in category: ${category.name}`
       );
 
       res.status(201).json({
@@ -359,6 +391,10 @@ router.post(
  *         schema:
  *           type: boolean
  *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *       - in: query
  *         name: search
  *         schema:
  *           type: string
@@ -373,11 +409,25 @@ router.get(
   validatePagination,
   async (req, res) => {
     try {
-      const { page, limit, storyType, verified, search } = req.query;
+      const { page, limit, categoryId, verified, search, isActive } = req.query;
 
-      const options = { page, limit, storyType, verified };
+      const options = {
+        page,
+        limit,
+        categoryId,
+        verified,
+        isActive,
+        adminView: true,
+      };
       const successStories = await SuccessStory.search(search, options);
-      const total = await SuccessStory.countDocuments({ isActive: true });
+
+      // Build count query with same filters
+      let countQuery = {};
+      if (categoryId) countQuery.categoryId = categoryId;
+      if (verified !== undefined) countQuery.isVerified = verified === 'true';
+      if (isActive !== undefined) countQuery.isActive = isActive === 'true';
+
+      const total = await SuccessStory.countDocuments(countQuery);
 
       res.json({
         success: true,
@@ -460,7 +510,10 @@ router.get(
     try {
       const { id } = req.params;
 
-      const successStory = await SuccessStory.findById(id);
+      const successStory = await SuccessStory.findById(id).populate(
+        'categoryId',
+        'name slug description'
+      );
       if (!successStory) {
         return res.status(404).json({
           success: false,
@@ -528,8 +581,11 @@ router.post(
 
       await successStory.approve(req.user.id);
 
+      // Populate category after approval
+      await successStory.populate('categoryId', 'name slug description');
+
       logger.info(
-        `Success story approved: ${successStory.title} by ${req.user.email}`
+        `Success story approved: ${successStory.submittedBy} by ${req.user.email}`
       );
 
       res.json({
@@ -643,8 +699,11 @@ router.put(
       Object.assign(successStory, req.body);
       await successStory.save();
 
+      // Populate category after update
+      await successStory.populate('categoryId', 'name slug description');
+
       logger.info(
-        `Success story updated: ${successStory.title} by ${req.user.email}`
+        `Success story updated: ${successStory.submittedBy} by ${req.user.email}`
       );
 
       res.json({
@@ -701,8 +760,11 @@ router.post(
 
       await successStory.toggleFeatured();
 
+      // Populate category after toggle
+      await successStory.populate('categoryId', 'name slug description');
+
       logger.info(
-        `Success story featured status toggled: ${successStory.title} by ${req.user.email}`
+        `Success story featured status toggled: ${successStory.submittedBy} by ${req.user.email}`
       );
 
       res.json({
@@ -759,8 +821,11 @@ router.post(
 
       await successStory.toggleActive();
 
+      // Populate category after toggle
+      await successStory.populate('categoryId', 'name slug description');
+
       logger.info(
-        `Success story active status toggled: ${successStory.title} by ${req.user.email}`
+        `Success story active status toggled: ${successStory.submittedBy} by ${req.user.email}`
       );
 
       res.json({
