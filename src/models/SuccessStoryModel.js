@@ -2,60 +2,58 @@ const mongoose = require('mongoose');
 
 const successStorySchema = new mongoose.Schema(
   {
-    title: {
+    // Your Name
+    submittedBy: {
       type: String,
-      required: [true, 'Title is required'],
+      required: [true, 'Your name is required'],
       trim: true,
-      minlength: [10, 'Title must be at least 10 characters long'],
-      maxlength: [200, 'Title cannot exceed 200 characters'],
+      minlength: [2, 'Name must be at least 2 characters long'],
+      maxlength: [100, 'Name cannot exceed 100 characters'],
     },
-    content: {
+    // Location
+    location: {
       type: String,
-      required: [true, 'Content is required'],
-      trim: true,
-      minlength: [50, 'Content must be at least 50 characters long'],
-      maxlength: [5000, 'Content cannot exceed 5000 characters'],
-    },
-    beneficiaryName: {
-      type: String,
-      required: [true, 'Beneficiary name is required'],
-      trim: true,
-      minlength: [2, 'Beneficiary name must be at least 2 characters long'],
-      maxlength: [100, 'Beneficiary name cannot exceed 100 characters'],
-    },
-    beneficiaryLocation: {
-      type: String,
-      required: [true, 'Beneficiary location is required'],
+      required: [true, 'Location is required'],
       trim: true,
       minlength: [2, 'Location must be at least 2 characters long'],
       maxlength: [200, 'Location cannot exceed 200 characters'],
     },
-    storyType: {
-      type: String,
-      required: [true, 'Story type is required'],
-      enum: {
-        values: [
-          'technology',
-          'healthcare',
-          'education',
-          'environment',
-          'social',
-          'economic',
-        ],
-        message:
-          'Story type must be one of: technology, healthcare, education, environment, social, economic',
-      },
+    // Category (from the category we created)
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'NewsCategory',
+      required: [true, 'Category is required'],
     },
-    imageUrl: {
+    // Email
+    submittedEmail: {
       type: String,
-      required: [true, 'Image URL is required'],
+      required: [true, 'Email is required'],
       trim: true,
+      lowercase: true,
+      match: [
+        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+        'Please enter a valid email address',
+      ],
     },
+    // Your Story
+    content: {
+      type: String,
+      required: [true, 'Your story is required'],
+      trim: true,
+      minlength: [50, 'Story must be at least 50 characters long'],
+      maxlength: [5000, 'Story cannot exceed 5000 characters'],
+    },
+    // Rating
     rating: {
       type: Number,
       required: [true, 'Rating is required'],
       min: [1, 'Rating must be at least 1'],
       max: [5, 'Rating cannot exceed 5'],
+    },
+    // Optional image
+    imageUrl: {
+      type: String,
+      trim: true,
     },
     isVerified: {
       type: Boolean,
@@ -72,15 +70,6 @@ const successStorySchema = new mongoose.Schema(
     viewCount: {
       type: Number,
       default: 0,
-    },
-    submittedBy: {
-      type: String,
-      trim: true,
-    },
-    submittedEmail: {
-      type: String,
-      trim: true,
-      lowercase: true,
     },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -107,20 +96,20 @@ const successStorySchema = new mongoose.Schema(
 
 // Indexes
 successStorySchema.index({ isVerified: 1, isActive: 1 });
-successStorySchema.index({ storyType: 1 });
+successStorySchema.index({ categoryId: 1 });
 successStorySchema.index({ createdAt: -1 });
 successStorySchema.index({ featured: 1 });
 successStorySchema.index({ rating: -1 });
+successStorySchema.index({ submittedEmail: 1 });
 
 // Virtual for public data (only verified stories)
 successStorySchema.virtual('publicData').get(function () {
   return {
     id: this._id,
-    title: this.title,
+    submittedBy: this.submittedBy,
+    location: this.location,
+    category: this.categoryId, // This will be populated with full category info
     content: this.content,
-    beneficiaryName: this.beneficiaryName,
-    beneficiaryLocation: this.beneficiaryLocation,
-    storyType: this.storyType,
     imageUrl: this.imageUrl,
     rating: this.rating,
     featured: this.featured,
@@ -133,19 +122,17 @@ successStorySchema.virtual('publicData').get(function () {
 successStorySchema.virtual('adminData').get(function () {
   return {
     id: this._id,
-    title: this.title,
+    submittedBy: this.submittedBy,
+    location: this.location,
+    category: this.categoryId, // This will be populated with full category info
+    submittedEmail: this.submittedEmail,
     content: this.content,
-    beneficiaryName: this.beneficiaryName,
-    beneficiaryLocation: this.beneficiaryLocation,
-    storyType: this.storyType,
     imageUrl: this.imageUrl,
     rating: this.rating,
     isVerified: this.isVerified,
     isActive: this.isActive,
     featured: this.featured,
     viewCount: this.viewCount,
-    submittedBy: this.submittedBy,
-    submittedEmail: this.submittedEmail,
     approvedBy: this.approvedBy,
     approvedAt: this.approvedAt,
     ipAddress: this.ipAddress,
@@ -157,53 +144,66 @@ successStorySchema.virtual('adminData').get(function () {
 
 // Static methods
 successStorySchema.statics.findVerified = function () {
-  return this.find({ isVerified: true, isActive: true }).sort({
-    createdAt: -1,
-  });
+  return this.find({ isVerified: true, isActive: true })
+    .populate('categoryId', 'name slug description')
+    .sort({ createdAt: -1 });
 };
 
 successStorySchema.statics.findPending = function () {
-  return this.find({ isVerified: false, isActive: true }).sort({
-    createdAt: -1,
-  });
+  return this.find({ isVerified: false, isActive: true })
+    .populate('categoryId', 'name slug description')
+    .sort({ createdAt: -1 });
 };
 
-successStorySchema.statics.findByType = function (storyType) {
-  return this.find({ storyType, isVerified: true, isActive: true }).sort({
-    createdAt: -1,
-  });
+successStorySchema.statics.findByCategory = function (categoryId) {
+  return this.find({ categoryId, isVerified: true, isActive: true })
+    .populate('categoryId', 'name slug description')
+    .sort({ createdAt: -1 });
 };
 
 successStorySchema.statics.findFeatured = function () {
-  return this.find({ featured: true, isVerified: true, isActive: true }).sort({
-    createdAt: -1,
-  });
+  return this.find({ featured: true, isVerified: true, isActive: true })
+    .populate('categoryId', 'name slug description')
+    .sort({ createdAt: -1 });
 };
 
 successStorySchema.statics.search = function (searchTerm, options = {}) {
-  const { page = 1, limit = 10, storyType, verified } = options;
+  const {
+    page = 1,
+    limit = 10,
+    categoryId,
+    verified,
+    isActive,
+    adminView = false,
+  } = options;
   const skip = (page - 1) * limit;
 
-  let query = { isActive: true };
+  // Admin view shows all records by default, public view only shows active records
+  let query = adminView ? {} : { isActive: true };
 
   if (searchTerm) {
     query.$or = [
-      { title: { $regex: searchTerm, $options: 'i' } },
       { content: { $regex: searchTerm, $options: 'i' } },
-      { beneficiaryName: { $regex: searchTerm, $options: 'i' } },
-      { beneficiaryLocation: { $regex: searchTerm, $options: 'i' } },
+      { submittedBy: { $regex: searchTerm, $options: 'i' } },
+      { location: { $regex: searchTerm, $options: 'i' } },
+      { submittedEmail: { $regex: searchTerm, $options: 'i' } },
     ];
   }
 
-  if (storyType) {
-    query.storyType = storyType;
+  if (categoryId) {
+    query.categoryId = categoryId;
   }
 
   if (verified !== undefined) {
     query.isVerified = verified;
   }
 
+  if (isActive !== undefined) {
+    query.isActive = isActive === 'true';
+  }
+
   return this.find(query)
+    .populate('categoryId', 'name slug description')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(parseInt(limit));
