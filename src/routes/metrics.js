@@ -91,7 +91,12 @@ router.get('/success-stories', validatePagination, async (req, res) => {
 
     const options = { page, limit, storyType };
     const stories = await SuccessStory.search(null, options);
-    const total = await SuccessStory.countDocuments({ isVerified: true });
+
+    // Build count query with same filters
+    let countQuery = { isVerified: true };
+    if (storyType) countQuery.storyType = storyType;
+
+    const total = await SuccessStory.countDocuments(countQuery);
 
     res.json({
       success: true,
@@ -524,64 +529,6 @@ router.post(
       res.status(500).json({
         success: false,
         message: 'Failed to verify success story',
-      });
-    }
-  }
-);
-
-/**
- * @swagger
- * /api/metrics/success-stories/{id}/toggle-featured:
- *   post:
- *     summary: Toggle featured status (Content Manager + Admin)
- *     tags: [Metrics]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Featured status toggled successfully
- */
-router.post(
-  '/success-stories/:id/toggle-featured',
-  authenticateToken,
-  requireContentManager,
-  validateObjectId('id'),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const story = await SuccessStory.findById(id);
-      if (!story) {
-        return res.status(404).json({
-          success: false,
-          message: 'Success story not found',
-        });
-      }
-
-      await story.toggleFeatured();
-
-      logger.info(
-        `Success story featured status toggled: ${story.title} by ${req.user.email}`
-      );
-
-      res.json({
-        success: true,
-        message: 'Featured status toggled successfully',
-        data: {
-          story: story.getAdminData(),
-        },
-      });
-    } catch (error) {
-      logger.error('Toggle featured status error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to toggle featured status',
       });
     }
   }

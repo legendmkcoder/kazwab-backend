@@ -238,7 +238,130 @@ router.get('/management', async (req, res) => {
 // Protected routes
 /**
  * @swagger
- * /api/team-members:
+ * /api/team-members/admin/all:
+ *   get:
+ *     summary: Get all team members including inactive (Admin)
+ *     tags: [Team Members]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [board, management]
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: All team members retrieved successfully
+ */
+router.get(
+  '/admin/all',
+  authenticateToken,
+  requireContentManager,
+  validatePagination,
+  async (req, res) => {
+    try {
+      const { page, limit, type, isActive, search } = req.query;
+
+      const options = { page, limit, type, isActive, adminView: true };
+      const teamMembers = await TeamMember.search(search, options);
+
+      // Build count query with same filters
+      let countQuery = {};
+      if (type) countQuery.type = type;
+      if (isActive !== undefined) countQuery.isActive = isActive === 'true';
+
+      const total = await TeamMember.countDocuments(countQuery);
+
+      res.json({
+        success: true,
+        data: {
+          teamMembers: teamMembers.map((member) => member.adminData),
+          pagination: createPagination(page, limit, total),
+        },
+      });
+    } catch (error) {
+      logger.error('Get all team members error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get team members',
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/team-members/admin/{id}:
+ *   get:
+ *     summary: Get team member by ID (Admin)
+ *     tags: [Team Members]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Team member retrieved successfully
+ */
+router.get(
+  '/admin/:id',
+  authenticateToken,
+  requireContentManager,
+  validateObjectId('id'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const teamMember = await TeamMember.findById(id);
+      if (!teamMember) {
+        return res.status(404).json({
+          success: false,
+          message: 'Team member not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          teamMember: teamMember.adminData,
+        },
+      });
+    } catch (error) {
+      logger.error('Get team member by ID (admin) error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get team member',
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/team-members/admin:
  *   post:
  *     summary: Create team member (Content Manager + Admin)
  *     tags: [Team Members]
@@ -277,7 +400,7 @@ router.get('/management', async (req, res) => {
  *         description: Team member created successfully
  */
 router.post(
-  '/',
+  '/admin',
   authenticateToken,
   requireContentManager,
   validateBody(teamMemberValidation.create),
@@ -314,7 +437,7 @@ router.post(
 
 /**
  * @swagger
- * /api/team-members/{id}:
+ * /api/team-members/admin/{id}:
  *   put:
  *     summary: Update team member (Content Manager + Admin)
  *     tags: [Team Members]
@@ -331,7 +454,7 @@ router.post(
  *         description: Team member updated successfully
  */
 router.put(
-  '/:id',
+  '/admin/:id',
   authenticateToken,
   requireContentManager,
   validateObjectId('id'),
@@ -374,7 +497,7 @@ router.put(
 
 /**
  * @swagger
- * /api/team-members/{id}:
+ * /api/team-members/admin/{id}:
  *   delete:
  *     summary: Delete team member (Content Manager + Admin)
  *     tags: [Team Members]
@@ -391,7 +514,7 @@ router.put(
  *         description: Team member deleted successfully
  */
 router.delete(
-  '/:id',
+  '/admin/:id',
   authenticateToken,
   requireContentManager,
   validateObjectId('id'),
@@ -429,7 +552,7 @@ router.delete(
 
 /**
  * @swagger
- * /api/team-members/{id}/toggle-active:
+ * /api/team-members/admin/{id}/toggle-active:
  *   post:
  *     summary: Toggle active status (Content Manager + Admin)
  *     tags: [Team Members]
@@ -446,7 +569,7 @@ router.delete(
  *         description: Active status toggled successfully
  */
 router.post(
-  '/:id/toggle-active',
+  '/admin/:id/toggle-active',
   authenticateToken,
   requireContentManager,
   validateObjectId('id'),

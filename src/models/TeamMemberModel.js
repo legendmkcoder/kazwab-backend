@@ -141,10 +141,11 @@ teamMemberSchema.statics.findManagementTeam = function () {
 };
 
 teamMemberSchema.statics.search = function (searchTerm, options = {}) {
-  const { page = 1, limit = 10, type } = options;
+  const { page = 1, limit = 10, type, adminView = false } = options;
   const skip = (page - 1) * limit;
 
-  let query = { isActive: true };
+  // Admin view shows all records, public view only shows active records
+  let query = adminView ? {} : { isActive: true };
 
   if (searchTerm) {
     query.$or = [

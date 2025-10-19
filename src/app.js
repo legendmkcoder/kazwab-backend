@@ -30,6 +30,9 @@ const metricsRoutes = require('./routes/metrics');
 const faqRoutes = require('./routes/faq');
 const teamMembersRoutes = require('./routes/teamMembers');
 const dashboardRoutes = require('./routes/dashboard');
+const ninVerificationRoutes = require('./routes/ninVerification');
+const paymentRoutes = require('./routes/payment');
+const webhookRoutes = require('./routes/webhook');
 
 // Create Express app
 const app = express();
@@ -137,6 +140,9 @@ app.use('/api/metrics', metricsRoutes);
 app.use('/api/faq', faqRoutes);
 app.use('/api/team-members', teamMembersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/nin-verification', ninVerificationRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Swagger documentation setup
 if (process.env.NODE_ENV === 'development') {

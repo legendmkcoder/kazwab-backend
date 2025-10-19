@@ -1,0 +1,57 @@
+### NIN Verification API Tests
+### Use with REST Client extension in VS Code
+
+@baseUrl = http://localhost:5000
+@apiUrl = {{baseUrl}}/api/nin-verification
+
+### Health Check
+GET {{baseUrl}}/health
+
+### 1. Verify NIN (Valid)
+POST {{apiUrl}}/verify
+Content-Type: application/json
+
+{
+  "nin": "12345678901"
+}
+
+### 2. Verify NIN (Invalid - not 11 digits)
+POST {{apiUrl}}/verify
+Content-Type: application/json
+
+{
+  "nin": "123"
+}
+
+### 3. Verify NIN (Invalid - contains letters)
+POST {{apiUrl}}/verify
+Content-Type: application/json
+
+{
+  "nin": "1234567890A"
+}
+
+### 4. Verify NIN (Missing NIN)
+POST {{apiUrl}}/verify
+Content-Type: application/json
+
+{
+  "name": "test"
+}
+
+### 5. Get All NIN Verifications (Admin Only - requires auth token)
+GET {{apiUrl}}?page=1&limit=10
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### 6. Get Cache Statistics (Admin Only)
+GET {{apiUrl}}/cache/stats
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### 7. Get Specific NIN Verification (Admin Only)
+GET {{apiUrl}}/12345678901
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### 8. Clear NIN Cache (Admin Only)
+DELETE {{apiUrl}}/cache/12345678901
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+

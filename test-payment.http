@@ -1,0 +1,68 @@
+### Test Payment System
+
+### 1. Generate Payment (Public - No Auth Required - Guest Payment)
+POST http://localhost:5000/api/payments/generate
+Content-Type: application/json
+
+{
+  "amount": 5000,
+  "email": "test@example.com",
+  "name": "John Doe",
+  "phonenumber": "+2348123456789"
+}
+
+### 1b. Generate Payment for Authenticated User (Requires Authentication)
+POST http://localhost:5000/api/payments/generate-user
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "amount": 5000,
+  "email": "user@example.com",
+  "name": "Authenticated User",
+  "phonenumber": "+2348123456789"
+}
+
+### 2. Verify Payment (Public - No Auth Required)
+GET http://localhost:5000/api/payments/verify?reference=YOUR_TX_REF_HERE
+
+### 3. Get User Payments (Requires Authentication)
+GET http://localhost:5000/api/payments/my
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### 4. Get All Payments (Admin Only)
+GET http://localhost:5000/api/payments/all
+Authorization: Bearer YOUR_ADMIN_JWT_TOKEN_HERE
+
+### 5. Get Payment Statistics (Admin Only)
+GET http://localhost:5000/api/payments/stats
+Authorization: Bearer YOUR_ADMIN_JWT_TOKEN_HERE
+
+### 6. Get Payment by ID (Admin Only)
+GET http://localhost:5000/api/payments/PAYMENT_ID_HERE
+Authorization: Bearer YOUR_ADMIN_JWT_TOKEN_HERE
+
+### 7. Update Payment Status (Admin Only)
+PATCH http://localhost:5000/api/payments/PAYMENT_ID_HERE/status
+Authorization: Bearer YOUR_ADMIN_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "status": "successful"
+}
+
+### 8. Flutterwave Webhook (Public - Webhook Endpoint)
+POST http://localhost:5000/api/webhooks/flutterwave
+Content-Type: application/json
+verif-hash: YOUR_DEV_FLUTTERWAVE_SECRET_KEY
+
+{
+  "event": "charge.completed",
+  "data": {
+    "tx_ref": "TEST12345678",
+    "status": "successful",
+    "amount": 5000,
+    "charged_amount": 5000,
+    "payment_type": "card"
+  }
+}

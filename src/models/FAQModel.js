@@ -29,10 +29,6 @@ const faqSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    isFeatured: {
-      type: Boolean,
-      default: false,
-    },
     orderIndex: {
       type: Number,
       default: 0,
@@ -60,7 +56,6 @@ const faqSchema = new mongoose.Schema(
 
 // Indexes
 faqSchema.index({ category: 1, isActive: 1 });
-faqSchema.index({ isFeatured: 1, isActive: 1 });
 faqSchema.index({ orderIndex: 1 });
 
 // Virtual for public data
@@ -70,7 +65,6 @@ faqSchema.virtual('publicData').get(function () {
     question: this.question,
     answer: this.answer,
     category: this.category,
-    isFeatured: this.isFeatured,
     viewCount: this.viewCount,
     createdAt: this.createdAt,
   };
@@ -84,7 +78,6 @@ faqSchema.virtual('adminData').get(function () {
     answer: this.answer,
     category: this.category,
     isActive: this.isActive,
-    isFeatured: this.isFeatured,
     orderIndex: this.orderIndex,
     viewCount: this.viewCount,
     createdBy: this.createdBy,
@@ -106,18 +99,12 @@ faqSchema.statics.findByCategory = function (category) {
   });
 };
 
-faqSchema.statics.findFeatured = function () {
-  return this.find({ isFeatured: true, isActive: true }).sort({
-    orderIndex: 1,
-    createdAt: -1,
-  });
-};
-
 faqSchema.statics.search = function (searchTerm, options = {}) {
-  const { page = 1, limit = 10, category, featured } = options;
+  const { page = 1, limit = 10, category, adminView = false } = options;
   const skip = (page - 1) * limit;
 
-  let query = { isActive: true };
+  // Admin view shows all records, public view only shows active records
+  let query = adminView ? {} : { isActive: true };
 
   if (searchTerm) {
     query.$or = [
@@ -128,10 +115,6 @@ faqSchema.statics.search = function (searchTerm, options = {}) {
 
   if (category) {
     query.category = category;
-  }
-
-  if (featured !== undefined) {
-    query.isFeatured = featured === 'true';
   }
 
   return this.find(query)
@@ -146,11 +129,6 @@ faqSchema.methods.incrementViewCount = async function () {
   return this.save();
 };
 
-faqSchema.methods.toggleFeatured = async function () {
-  this.isFeatured = !this.isFeatured;
-  return this.save();
-};
-
 faqSchema.methods.toggleActive = async function () {
   this.isActive = !this.isActive;
   return this.save();
@@ -158,7 +136,11 @@ faqSchema.methods.toggleActive = async function () {
 
 // Pre-save middleware
 faqSchema.pre('save', function (next) {
-  if (this.isModified('question') || this.isModified('answer')) {
+  if (
+    this.isModified('question') ||
+    this.isModified('answer') ||
+    this.isModified('isActive')
+  ) {
     this.updatedAt = new Date();
   }
   next();

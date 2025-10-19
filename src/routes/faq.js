@@ -40,7 +40,6 @@ const faqValidation = {
         'any.only': 'Category must be one of: general, zakkat, waqf',
         'any.required': 'Category is required',
       }),
-    isFeatured: Joi.boolean().optional(),
     orderIndex: Joi.number().integer().min(0).optional(),
   }),
   update: Joi.object({
@@ -59,7 +58,6 @@ const faqValidation = {
         'any.only': 'Category must be one of: general, zakkat, waqf',
       }),
     isActive: Joi.boolean().optional(),
-    isFeatured: Joi.boolean().optional(),
     orderIndex: Joi.number().integer().min(0).optional(),
   }),
 };
@@ -101,16 +99,21 @@ const faqValidation = {
  */
 router.get('/', validatePagination, async (req, res) => {
   try {
-    const { page, limit, category, featured, search } = req.query;
+    const { page, limit, category, search } = req.query;
 
-    const options = { page, limit, category, featured };
+    const options = { page, limit, category, adminView: true };
     const faqs = await FAQ.search(search, options);
-    const total = await FAQ.countDocuments({ isActive: true });
+
+    // Build count query with same filters
+    let countQuery = {};
+    if (category) countQuery.category = category;
+
+    const total = await FAQ.countDocuments(countQuery);
 
     res.json({
       success: true,
       data: {
-        faqs: faqs.map((faq) => faq.publicData),
+        faqs: faqs.map((faq) => faq.adminData),
         pagination: createPagination(page, limit, total),
       },
     });
@@ -198,35 +201,6 @@ router.get('/categories', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get categories',
-    });
-  }
-});
-
-/**
- * @swagger
- * /api/faq/featured:
- *   get:
- *     summary: Get featured FAQs (Public)
- *     tags: [FAQ]
- *     responses:
- *       200:
- *         description: Featured FAQs retrieved successfully
- */
-router.get('/featured', async (req, res) => {
-  try {
-    const faqs = await FAQ.findFeatured();
-
-    res.json({
-      success: true,
-      data: {
-        faqs: faqs.map((faq) => faq.publicData),
-      },
-    });
-  } catch (error) {
-    logger.error('Get featured FAQs error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get featured FAQs',
     });
   }
 });
@@ -406,64 +380,6 @@ router.delete(
       res.status(500).json({
         success: false,
         message: 'Failed to delete FAQ',
-      });
-    }
-  }
-);
-
-/**
- * @swagger
- * /api/faq/{id}/toggle-featured:
- *   post:
- *     summary: Toggle featured status (Content Manager + Admin)
- *     tags: [FAQ]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Featured status toggled successfully
- */
-router.post(
-  '/:id/toggle-featured',
-  authenticateToken,
-  requireContentManager,
-  validateObjectId('id'),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const faq = await FAQ.findById(id);
-      if (!faq) {
-        return res.status(404).json({
-          success: false,
-          message: 'FAQ not found',
-        });
-      }
-
-      await faq.toggleFeatured();
-
-      logger.info(
-        `FAQ featured status toggled: ${faq.question} by ${req.user.email}`
-      );
-
-      res.json({
-        success: true,
-        message: 'Featured status toggled successfully',
-        data: {
-          faq: faq.adminData,
-        },
-      });
-    } catch (error) {
-      logger.error('Toggle featured status error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to toggle featured status',
       });
     }
   }
